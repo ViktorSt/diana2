@@ -49,16 +49,11 @@ object DianaAnalysis {
 		val t = new Timer
 		val timings = new ArrayBuffer[(String, Long)]
 		
-		val signalProcessor = params.getSignalProcessor
+		
 		val allTraces 	= at.ms1Traces ++ at.ms2Traces
 		val useMS1 		= at.ms1Traces.length > 1
 	
-		def getPCs(trace:Trace, y:DianaSignalProcessor.SmoothAndBase) = {	
-			var dy 		= signalProcessor.getDerivate(y.smooth)
-			var ddy		= signalProcessor.getDerivate(dy)
-			
-			DianaPeakCandidate.findPCs(y.smooth, dy, ddy, y.base, params.binSize, trace)
-		}
+		
 		
 		def nonRetarded(pcGroup:PCGroup) = {
 			val nFrags = pcGroup.pcs.count(_.trace.channel.msLevel == 2)
@@ -70,11 +65,14 @@ object DianaAnalysis {
 			})
 		}
 		
-		val smooths 	= allTraces.map(_.map(signalProcessor.getSmoothAndBase))
-		val pcs			= smooths.map(traceDat => getPCs(traceDat.trace, traceDat.data))
-		val results		= DianaPeakCandidate.groupPCs(pcs, DianaPCEvaluator.findEdges)
-							.filter(nonRetarded)
-							.map(new Result(_, useMS1))
+		val smooths 	= allTraces.map(_.map(params.getSignalProcessor.getSmoothAndBase))
+		val detectedPeaks			= 
+      params.peakDetectionMode.value match {
+        case "original" => peakDetection(allTraces, smooths, params)
+        case "stymne" => stymnePeakDetection(allTraces, smooths, params)
+    }
+        
+		val results		= detectedPeaks.filter(nonRetarded).map(new Result(_, useMS1))
 							
 		timings += "tPeakDetection" -> t.click
 		if (results.isEmpty) {
@@ -105,6 +103,38 @@ object DianaAnalysis {
 			AssayResults(timings, finalResults)
 		}
 	}
+  
+  
+  def peakDetection(
+      allTraces:Seq[DianaLib.Trace], 
+      smooths:Seq[DianaLib.TraceData[DianaSignalProcessor.SmoothAndBase]], 
+      params:DianaLibParams
+  ):Seq[PCGroup] = {
+    
+    val signalProcessor = params.getSignalProcessor
+    
+    def getPCs(trace:Trace, y:DianaSignalProcessor.SmoothAndBase) = { 
+      var dy    = signalProcessor.getDerivate(y.smooth)
+      var ddy   = signalProcessor.getDerivate(dy)
+      
+      DianaPeakCandidate.findPCs(y.smooth, dy, ddy, y.base, params.binSize, trace)
+    }
+    
+    val pcs     = smooths.map(traceDat => getPCs(traceDat.trace, traceDat.data))
+    DianaPeakCandidate.groupPCs(pcs, DianaPCEvaluator.findEdges)
+    
+  }
+  
+  def stymnePeakDetection(
+      allTraces:Seq[DianaLib.Trace], 
+      smooths:Seq[DianaLib.TraceData[DianaSignalProcessor.SmoothAndBase]], 
+      params:DianaLibParams
+  ):Seq[PCGroup] = {
+/*    se.lth.immun.diana.FromTramToTable.startVSpeaks(allTraces)
+  Make diana call this method as well.
+  */  
+    Nil
+  }
 	
 	
 	def calculateFragmentScores(

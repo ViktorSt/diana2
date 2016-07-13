@@ -10,8 +10,9 @@ class DianaLibParams extends Params {
 	val binSize = 20			## "Bin size used for signal smoothing"
 	val singleFragmentMinArea = 25.0	## "Minimum area required of a fragment in a peak candidate with only one fragment"
 	val minRatioValidity = 2	## "The minimum number of supporting fragments to propagate validation"
-	val pCutoff = 0.99 			## "p-value cutoff for peak candidates (default: 0.99)"
-	
+	val pCutoff = 0.99 			## "p-value cutoff for peak candidates"
+	val peakDetectionMode = "original"  ## "peak detection mode to use, original or stymne"
+  
 	lazy val getSignalProcessor = DianaSignalProcessor.getDefault
 		
 }
